@@ -3,14 +3,15 @@ import Header from "./Header";
 import Footer from "./Footer";
 import Note from "./Note";
 import CreateArea from "./CreateArea";
-import { IdCard, Search, PlusCircle, AlertCircle, Layers } from "lucide-react";
+import ToastContainer from "./Toast";
+import { IdCard, Search, Layers, Printer, Sliders } from "lucide-react";
 
 const INITIAL_DEMO_CARDS = [
   {
     Nama: "Raden Aditya Pratama",
     Nim: "22081010045",
     Jurusan: "Teknik Informatika & AI",
-    Kampus: "INSTITUT TEKNOLOGI BANDUNG",
+    Kampus: "Institut Teknologi Bandung",
     Foto: "https://images.unsplash.com/photo-1539571696357-5a69c17a67c6?auto=format&fit=crop&w=400&q=80",
     theme: "black-gold",
     validThru: "09/2028",
@@ -20,7 +21,7 @@ const INITIAL_DEMO_CARDS = [
     Nama: "Clarissa Aurelia Putri",
     Nim: "22040120018",
     Jurusan: "Desain Komunikasi Visual",
-    Kampus: "UNIVERSITAS INDONESIA",
+    Kampus: "Universitas Indonesia",
     Foto: "https://images.unsplash.com/photo-1494790108377-be9c29b29330?auto=format&fit=crop&w=400&q=80",
     theme: "sapphire-blue",
     validThru: "09/2027",
@@ -42,8 +43,27 @@ function App() {
     return INITIAL_DEMO_CARDS;
   });
 
+  const [toasts, setToasts] = useState([]);
   const [searchQuery, setSearchQuery] = useState("");
   const [printSingleId, setPrintSingleId] = useState(null);
+  const [printMode, setPrintMode] = useState("both"); // 'both', 'front', 'back', 'active'
+
+  // Toast notification helper
+  const addToast = ({ type = "info", title = "", message = "", duration = 4000 }) => {
+    const id = Date.now() + Math.random().toString(36).substring(2, 7);
+    const newToast = { id, type, title, message };
+    setToasts((prev) => [...prev, newToast]);
+
+    if (duration > 0) {
+      setTimeout(() => {
+        setToasts((prev) => prev.filter((t) => t.id !== id));
+      }, duration);
+    }
+  };
+
+  const removeToast = (id) => {
+    setToasts((prev) => prev.filter((t) => t.id !== id));
+  };
 
   // Sync to localStorage
   useEffect(() => {
@@ -58,30 +78,79 @@ function App() {
     setNotes((prevNotes) => [newNote, ...prevNotes]);
   }
 
-  function deleteNote(idToDelete) {
-    setNotes((prevNotes) => prevNotes.filter((_, index) => index !== idToDelete));
+  function deleteNote(idToDelete, studentName = "") {
+    const target = notes[idToDelete];
+    const name = studentName || (target ? target.Nama : "mahasiswa ini");
+    if (window.confirm(`Hapus kartu mahasiswa atas nama "${name}"?`)) {
+      setNotes((prevNotes) => prevNotes.filter((_, index) => index !== idToDelete));
+      addToast({
+        type: "info",
+        title: "Kartu Dihapus",
+        message: `Kartu mahasiswa atas nama ${name} telah dihapus dari antrean.`
+      });
+    }
   }
 
   function resetDemoCards() {
     if (window.confirm("Muat ulang contoh data kartu awal? Data saat ini akan diganti dengan contoh.")) {
       setNotes(INITIAL_DEMO_CARDS);
+      addToast({
+        type: "success",
+        title: "Contoh Data Dimuat",
+        message: "2 contoh kartu mahasiswa berhasil dimuat ulang ke dalam antrean cetak."
+      });
     }
   }
 
   function handlePrintAll() {
+    if (notes.length === 0) {
+      addToast({
+        type: "warning",
+        title: "Antrean Kosong",
+        message: "Belum ada kartu untuk dicetak! Silakan buat kartu terlebih dahulu."
+      });
+      return;
+    }
+
     setPrintSingleId(null);
+    const modeLabel = 
+      printMode === "both" 
+        ? "Bolak-Balik (Depan & Belakang)" 
+        : printMode === "front" 
+        ? "Hanya Sisi Depan" 
+        : printMode === "back" 
+        ? "Hanya Sisi Belakang" 
+        : "Sesuai Tampilan Layar";
+
+    addToast({
+      type: "info",
+      title: "Membuka Dialog Cetak",
+      message: `Menyiapkan ${notes.length} kartu untuk dicetak (Format: ${modeLabel}).`
+    });
+
     setTimeout(() => {
       window.print();
-    }, 150);
+    }, 200);
   }
 
-  function handlePrintSingle(id) {
+  function handlePrintSingle(id, customMode = null, studentName = "") {
+    if (customMode) {
+      setPrintMode(customMode);
+    }
     setPrintSingleId(id);
+    const name = studentName || (notes[id] ? notes[id].Nama : "Mahasiswa");
+    
+    addToast({
+      type: "info",
+      title: "Mencetak Satuan",
+      message: `Menyiapkan pencetakan kartu untuk ${name}.`
+    });
+
     setTimeout(() => {
       window.print();
       // Reset single filter after print dialog closes
       setTimeout(() => setPrintSingleId(null), 1000);
-    }, 150);
+    }, 200);
   }
 
   // Filter cards for display
@@ -97,16 +166,25 @@ function App() {
 
   return (
     <div className={`app-root ${printSingleId !== null ? "printing-single-mode" : ""}`}>
+      {/* Toast Notification Container */}
+      <ToastContainer toasts={toasts} onDismiss={removeToast} />
+
       <Header 
         totalCards={notes.length} 
         onPrint={handlePrintAll} 
-        onResetDemo={resetDemoCards} 
+        onResetDemo={resetDemoCards}
+        printMode={printMode}
+        onPrintModeChange={setPrintMode}
       />
 
       <main className="main-layout">
         {/* LEFT COLUMN: Creator Form */}
         <section className="sidebar-section no-print">
-          <CreateArea onAdd={addNote} />
+          <CreateArea 
+            onAdd={addNote} 
+            existingNims={notes.map((n) => n.Nim)}
+            onNotify={addToast}
+          />
         </section>
 
         {/* RIGHT COLUMN: Cards Gallery */}
@@ -116,6 +194,17 @@ function App() {
             <div className="gallery-title-box">
               <Layers size={20} className="text-amber-400" />
               <h2 className="gallery-title">Antrean Kartu Cetak ({notes.length})</h2>
+            </div>
+
+            {/* Print Mode Quick Badges */}
+            <div className="gallery-mode-indicator">
+              <span className="mode-desc">Mode Cetak Aktif:</span>
+              <span className="mode-badge">
+                {printMode === "both" && "🪪 Bolak-Balik (Depan & Belakang)"}
+                {printMode === "front" && "📄 Sisi Depan Saja"}
+                {printMode === "back" && "🔄 Sisi Belakang Saja"}
+                {printMode === "active" && "👁️ Sesuai Sisi Layar"}
+              </span>
             </div>
 
             {/* Search Input */}
@@ -147,7 +236,14 @@ function App() {
                 <button 
                   type="button" 
                   className="btn btn-primary" 
-                  onClick={() => setNotes(INITIAL_DEMO_CARDS)}
+                  onClick={() => {
+                    setNotes(INITIAL_DEMO_CARDS);
+                    addToast({
+                      type: "success",
+                      title: "Data Dimuat",
+                      message: "Contoh kartu berhasil dimuat kembali."
+                    });
+                  }}
                 >
                   Muat Contoh Data Kartu
                 </button>
@@ -175,6 +271,7 @@ function App() {
                       role={noteItem.role || "MAHASISWA AKTIF"}
                       onDelete={deleteNote}
                       onPrintSingle={handlePrintSingle}
+                      globalPrintMode={printMode}
                     />
                   </div>
                 );

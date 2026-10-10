@@ -18,7 +18,15 @@ function Footer() {
 
         <div className="footer-bottom-bar">
           <p className="footer-copy">
-            © {currentYear} <strong>CardCraft Studio</strong> • Mesin Cetak Kartu Nama & Mahasiswa
+            © 2026 DC Forge • Developed with ❤️ by{" "}
+            <a
+              href="https://github.com/DoriFransDika/"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="footer-link"
+            >
+              Dori Frans Dika
+            </a>
           </p>
           <div className="footer-status">
             <span className="live-dot"></span>
